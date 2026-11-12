@@ -1,0 +1,78 @@
+# Grana Amiga — Banco de Dados Oracle e PL/SQL
+
+Camada de dados do Grana Amiga, app de educação e organização financeira para famílias de baixa renda.
+
+Global Solution 2026/2 · CitizenTech · FIAP · Mastering Relational and Non-Relational Database
+
+## 💡 Objetivo
+
+Implementar em Oracle PL/SQL a camada de processamento de dados da solução: seis tabelas relacionadas, com dados de teste coerentes, e as regras de negócio do app (Termômetro do Dinheiro, plano de quitação, prioridade das dívidas, gasto de luz e alertas de vencimento) em blocos anônimos, decisões, repetições, cursores e procedimentos armazenados.
+
+As tabelas são as mesmas entidades da API Java do grupo, e as regras usam os mesmos limites e fórmulas do app Flutter.
+
+## 📁 Arquivos
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| `GranaAmiga_GS2026_2_BD.sql` | Script único: limpeza, DDL, dados de teste, consultas, funções, blocos anônimos, procedimentos e demonstração |
+| `GranaAmiga_GS2026_2_BD.pdf` | Documentação: modelos conceitual, lógico e físico, DER em notação de Barker, 3FN e saída esperada |
+
+## 🗂️ Modelo de dados
+
+| Tabela | O que guarda | Linhas de teste |
+| --- | --- | --- |
+| `usuario` | Família (USER) ou administrador (ADMIN), telefone, renda de referência | 10 |
+| `categoria` | Categorias de entrada e saída mostradas como figuras no app | 10 |
+| `transacao` | Entradas e saídas registradas pelo app, pelo WhatsApp ou pelo medidor (IOT) | 58 |
+| `divida` | Dívidas parceladas: saldo, juros ao mês, parcela, dia de vencimento | 12 |
+| `dispositivo` | Medidor de energia da casa, com tarifa do kWh e meta mensal | 10 |
+| `leitura_energia` | Leituras do medidor, com o custo estimado | 23 |
+
+Relacionamentos (todos 1:N): `usuario` → `transacao`, `divida` e `dispositivo`; `categoria` → `transacao`; `dispositivo` → `leitura_energia`. A chave estrangeira de `transacao` para `categoria` é composta (`id_categoria`, `tipo`), para que uma entrada nunca seja lançada numa categoria de saída.
+
+## ⚙️ PL/SQL
+
+| Requisito | Onde é atendido |
+| --- | --- |
+| Bloco anônimo com variáveis, SELECT INTO e DBMS_OUTPUT | Bloco 1 (Termômetro do Dinheiro) e Bloco 3 (prioridade das dívidas) |
+| Decisão IF/ELSIF/ELSE | Níveis do Termômetro, faixa de energia, dívida que não quita, prazo dos alertas |
+| Repetição FOR, WHILE ou LOOP | FOR por família (Bloco 1) e WHILE mês a mês no plano de quitação (Bloco 2) |
+| Cursor explícito | `c_dividas` com OPEN, FETCH e CLOSE (Bloco 3) e `c_vencimentos` em `prc_alertas_vencimento` |
+| Procedimento de operação | `prc_registrar_transacao` e `prc_registrar_leitura_energia` |
+| Procedimento de consulta/processamento | `prc_resumo_energia` e `prc_alertas_vencimento` |
+
+Regras de negócio:
+
+- **Termômetro do Dinheiro:** gasto do mês ÷ entradas do mês. Abaixo de 70% é VERDE (Tranquilo), abaixo de 90% é AMARELO (Atenção) e a partir de 90% é VERMELHO (Urgente).
+- **Plano de quitação:** juros do mês = saldo × taxa ÷ 100; a parcela paga os juros e o resto amortiza. Se a parcela não cobre os juros, o plano avisa que a dívida não quita.
+- **Prioridade das dívidas:** primeiro a de maiores juros, depois a de maior saldo.
+- **Energia:** custo abaixo de 70% da meta é VERDE, até a meta é AMARELO e acima é VERMELHO. O custo de cada leitura é kWh × tarifa.
+- **Alertas:** parcelas que vencem nos próximos 15 dias, com aviso das que vencem em até 7. O dia 31 vira o último dia em meses mais curtos.
+- **Validações das operações:** valor e kWh positivos, origem válida, usuário, categoria e medidor existentes, tipo igual ao da categoria e leitura fora do futuro. Cada caso tem um erro próprio, de ORA-20001 em diante.
+
+## ▶️ Como executar
+
+1. No Oracle SQL Developer, conecte-se ao seu schema e abra `GranaAmiga_GS2026_2_BD.sql`.
+2. Execute com **Executar Script (F5)**, sem selecionar nada.
+3. Veja o resultado na janela **Saída do Script**.
+
+O bloco de limpeza do início apaga as tabelas, sequences, funções e procedimentos do projeto que já existirem no schema. Assim o script pode ser executado várias vezes, mas qualquer tabela chamada `usuario` ou `categoria` nesse schema também será apagada.
+
+As `/` sozinhas na linha encerram cada bloco, função e procedimento. Sem elas, o SQL Developer junta um bloco com o seguinte e mostra `PLS-00103: Encontrado o símbolo "CREATE"`.
+
+## ✅ Resultado esperado
+
+- O Termômetro mostra as 9 famílias nos três níveis. Maria das Dores Silva tem R$ 2.400,00 de entradas, R$ 2.080,00 de saídas e 86,67% comprometido (AMARELO, Atenção).
+- O cartão de crédito da Maria (R$ 1.000,00 a 12% ao mês, parcela de R$ 250,00) quita em 6 meses, com R$ 445,03 de juros.
+- Uma leitura de 50 kWh leva a conta de luz da Maria de 80,00% para 102,22% da meta (de AMARELO para VERMELHO).
+- As chamadas inválidas da demonstração mostram "Erro esperado: ORA-2000x: …".
+
+## 👥 Integrantes
+
+| Nome | RM |
+| --- | --- |
+| Cassio Alexandre Ribeiro de Moraes | 567295 |
+| Davi Isac Colin Pereira | 567265 |
+| Hugo Souza de Jesus | 568542 |
+| Matheus Peres Moraes de Jesus | 567300 |
+| Pedro Gonçalves Rodrigues | 567651 |
